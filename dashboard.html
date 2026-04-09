@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDN Security Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+:root {
+  --green: #00ff41;
+  --green-dim: #00cc33;
+  --green-glow: rgba(0,255,65,0.3);
+  --red: #ff0033;
+  --red-glow: rgba(255,0,51,0.3);
+  --amber: #ffaa00;
+  --blue: #00aaff;
+  --bg: #000a00;
+  --bg2: #001400;
+  --bg3: #002200;
+  --border: rgba(0,255,65,0.2);
+  --border-bright: rgba(0,255,65,0.6);
+  --text: #00ff41;
+  --text-dim: rgba(0,255,65,0.6);
+  --text-faint: rgba(0,255,65,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+canvas#matrix { position: fixed; top:0; left:0; width:100%; height:100%; opacity:0.05; z-index:0; pointer-events:none; }
+
+/* ===== LOGIN PAGE ===== */
+#login-page {
+  position: fixed;
+  top:0; left:0; width:100%; height:100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: var(--bg);
+}
+.login-box {
+  width: 420px;
+  border: 1px solid var(--border-bright);
+  background: var(--bg2);
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+}
+.login-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  animation: scan 3s linear infinite;
+}
+@keyframes scan { 0%{left:-60%} 100%{left:160%} }
+.login-logo {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: 0 0 20px var(--green-glow);
+  text-align: center;
+  letter-spacing: 4px;
+  margin-bottom: 6px;
+}
+.login-sub {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 3px;
+  margin-bottom: 32px;
+}
+.login-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+.login-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+  display: block;
+}
+.login-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--green);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  outline: none;
+  letter-spacing: 1px;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+.login-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 12px var(--green-glow);
+}
+.login-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--green);
+  color: var(--green);
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 12px;
+  cursor: pointer;
+  letter-spacing: 3px;
+  transition: all 0.2s;
+  text-shadow: 0 0 8px var(--green-glow);
+}
+.login-btn:hover {
+  background: var(--green-glow);
+  box-shadow: 0 0 20px var(--green-glow);
+}
+.login-error {
+  color: var(--red);
+  font-size: 11px;
+  text-align: center;
+  margin-top: 14px;
+  letter-spacing: 1px;
+  min-height: 16px;
+  text-shadow: 0 0 8px var(--red-glow);
+}
+.login-users {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 1px;
+}
+.login-users span { color: var(--text-dim); }
+.cursor-blink {
+  display: inline-block;
+  width: 8px; height: 14px;
+  background: var(--green);
+  animation: cur 1s step-end infinite;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+@keyframes cur { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ===== MAIN DASHBOARD ===== */
+#dashboard { display: none; position: relative; z-index: 1; }
+.container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border-bright);
+  padding: 14px 24px;
+  margin-bottom: 16px;
+  background: var(--bg2);
+  position: relative;
+  overflow: hidden;
+}
+.header::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  animation: scan 4s linear infinite;
+}
+.header-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: 0 0 20px var(--green-glow);
+  letter-spacing: 3px;
+}
+.header-sub { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; margin-top: 4px; }
+.header-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.clock {
+  font-family: 'Orbitron', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--green);
+  text-shadow: 0 0 15px var(--green-glow);
+}
+.clock-label { font-size: 10px; color: var(--text-faint); letter-spacing: 2px; }
+.user-badge {
+  font-size: 10px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  letter-spacing: 1px;
+}
+.logout-btn {
+  font-size: 10px;
+  color: var(--red);
+  background: transparent;
+  border: 1px solid var(--red);
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: 1px;
+}
+.logout-btn:hover { background: var(--red-glow); }
+
+/* Alert Banner */
+.alert-banner {
+  display: none;
+  background: rgba(255,0,51,0.08);
+  border: 1px solid var(--red);
+  padding: 12px 20px;
+  margin-bottom: 16px;
+  color: var(--red);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px var(--red-glow);
+  animation: alert-pulse 1.2s infinite;
+}
+@keyframes alert-pulse { 0%,100%{border-color:var(--red)} 50%{border-color:rgba(255,0,51,0.3)} }
+.alert-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red);
+  margin-right: 8px;
+  animation: blink 0.8s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* Stat Cards */
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+.card {
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+}
+.card.danger::before { background: var(--red); box-shadow: 0 0 10px var(--red-glow); }
+.card.safe::before { background: var(--green); box-shadow: 0 0 10px var(--green-glow); }
+.card.info::before { background: var(--blue); }
+.card.warn::before { background: var(--amber); }
+.card-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.card-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 28px;
+  font-weight: 700;
+}
+.card.danger .card-value { color: var(--red); text-shadow: 0 0 10px var(--red-glow); }
+.card.safe .card-value { color: var(--green); text-shadow: 0 0 10px var(--green-glow); }
+.card.info .card-value { color: var(--blue); }
+.card.warn .card-value { color: var(--amber); }
+
+/* Two col */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+/* Sections */
+.section {
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.section-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 3px;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::before {
+  content: '//';
+  color: var(--text-faint);
+}
+
+/* Graph */
+.graph-bars { display: flex; align-items: flex-end; gap: 3px; height: 80px; margin-bottom: 8px; }
+.bar { flex: 1; border-radius: 1px 1px 0 0; background: rgba(0,255,65,0.3); transition: height 0.5s; }
+.bar.atk { background: var(--red); box-shadow: 0 0 6px var(--red-glow); }
+.graph-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-faint); }
+
+/* Attack types */
+.atk-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.atk-row:last-child { border-bottom: none; }
+.atk-label { font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.atk-bar-bg { width: 120px; height: 4px; background: rgba(0,255,65,0.1); border-radius: 2px; }
+.atk-bar-fill { height: 4px; border-radius: 2px; transition: width 0.5s; }
+.atk-count { font-family: 'Orbitron', monospace; font-size: 16px; font-weight: 700; }
+.syn-color { color: var(--red); }
+.udp-color { color: var(--amber); }
+.icmp-color { color: var(--blue); }
+.http-color { color: #aa00ff; }
+
+/* Topology */
+.topo { display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 16px; padding: 8px 0; }
+.node { text-align: center; font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+.node-circle {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 8px;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid;
+  transition: all 0.5s;
+}
+.node-circle.ctrl { border-color: var(--blue); color: var(--blue); background: rgba(0,170,255,0.08); }
+.node-circle.sw { border-color: var(--green); color: var(--green); background: rgba(0,255,65,0.08); box-shadow: 0 0 8px var(--green-glow); }
+.node-circle.host { border-color: var(--border); color: var(--text-dim); background: transparent; }
+.node-circle.active { border-color: var(--green); color: var(--green); background: rgba(0,255,65,0.08); box-shadow: 0 0 12px var(--green-glow); }
+.node-circle.blocked { border-color: var(--red); color: var(--red); background: rgba(255,0,51,0.08); box-shadow: 0 0 12px var(--red-glow); border-style: dashed; animation: blink 1s infinite; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left;
+  font-size: 10px;
+  color: var(--text-faint);
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+td { padding: 10px 8px; border-bottom: 1px solid var(--border); color: var(--text-dim); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(0,255,65,0.03); }
+
+/* Badges */
+.badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  letter-spacing: 1px;
+  border: 1px solid;
+  font-family: 'Orbitron', monospace;
+}
+.badge.syn { color: var(--red); border-color: rgba(255,0,51,0.4); background: rgba(255,0,51,0.08); }
+.badge.udp { color: var(--amber); border-color: rgba(255,170,0,0.4); background: rgba(255,170,0,0.08); }
+.badge.icmp { color: var(--blue); border-color: rgba(0,170,255,0.4); background: rgba(0,170,255,0.08); }
+.badge.http { color: #aa00ff; border-color: rgba(170,0,255,0.4); background: rgba(170,0,255,0.08); }
+.badge.blocked { color: var(--red); border-color: rgba(255,0,51,0.4); background: rgba(255,0,51,0.08); }
+.badge.unblocked { color: var(--green); border-color: rgba(0,255,65,0.4); background: rgba(0,255,65,0.08); }
+
+/* Unblock btn */
+.unblock-btn {
+  font-size: 10px;
+  padding: 5px 12px;
+  border: 1px solid var(--red);
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+.unblock-btn:hover { background: rgba(255,0,51,0.1); box-shadow: 0 0 8px var(--red-glow); }
+.unblock-btn:disabled { color: var(--text-faint); border-color: var(--border); cursor: not-allowed; box-shadow: none; background: transparent; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  background: var(--bg2);
+  border: 1px solid var(--green);
+  padding: 12px 20px;
+  font-size: 12px;
+  color: var(--green);
+  letter-spacing: 1px;
+  display: none;
+  z-index: 9998;
+  box-shadow: 0 0 20px var(--green-glow);
+}
+
+/* IP highlight */
+.ip-text { color: var(--green); font-weight: bold; }
+.rate-text { color: var(--red); }
+.time-text { color: var(--text-faint); }
+
+/* Empty state */
+.empty { color: var(--text-faint); font-size: 11px; letter-spacing: 1px; padding: 20px 0; text-align: center; }
+</style>
+</head>
+<body>
+
+<canvas id="matrix"></canvas>
+
+<!-- LOGIN PAGE -->
+<div id="login-page">
+  <div class="login-box">
+    <div class="login-logo">SDN//SECURE</div>
+    <div class="login-sub">NETWORK SECURITY CONTROL CENTER</div>
+    <hr class="login-divider">
+    <label class="login-label">// OPERATOR_ID</label>
+    <input class="login-input" id="username" type="text" placeholder="enter username_" autocomplete="off" spellcheck="false">
+    <label class="login-label">// ACCESS_KEY</label>
+    <input class="login-input" id="password" type="password" placeholder="enter password_">
+    <button class="login-btn" onclick="doLogin()">[ AUTHENTICATE ]</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-users">
+      AUTHORIZED OPERATORS: <span>Kushal</span> / <span>Sneha</span> / <span>Mannat</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN DASHBOARD -->
+<div id="dashboard">
+<div class="container">
+
+  <div class="header">
+    <div>
+      <div class="header-title">SDN//SECURITY DASHBOARD</div>
+      <div class="header-sub">ML-BASED ATTACK DETECTION &amp; MITIGATION SYSTEM &nbsp;|&nbsp; POX CONTROLLER v0.7.0</div>
+    </div>
+    <div class="header-right">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="clock-label">SYSTEM TIME</div>
+      <div class="user-badge">OPERATOR: <span id="logged-user">--</span></div>
+      <button class="logout-btn" onclick="doLogout()">[ LOGOUT ]</button>
+    </div>
+  </div>
+
+  <div class="alert-banner" id="alert-banner">
+    <span class="alert-dot"></span>
+    <span id="alert-text">ATTACK DETECTED!</span>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:11px;color:var(--text-dim);letter-spacing:1px;">
+    <div style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 1.5s infinite;"></div>
+    <span id="status-text">NETWORK SECURE — NO ACTIVE THREATS DETECTED</span>
+  </div>
+
+  <div class="cards">
+    <div class="card danger">
+      <div class="card-label">TOTAL_ATTACKS</div>
+      <div class="card-value" id="total-atk">0</div>
+    </div>
+    <div class="card danger">
+      <div class="card-label">BLOCKED_IPs</div>
+      <div class="card-value" id="blk-count">0</div>
+    </div>
+    <div class="card info">
+      <div class="card-label">ACTIVE_SWITCHES</div>
+      <div class="card-value">4</div>
+    </div>
+    <div class="card safe">
+      <div class="card-label">NET_STATUS</div>
+      <div class="card-value" style="font-size:16px;margin-top:6px;" id="net-status">SAFE</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="section">
+      <div class="section-title">PACKET_RATE MONITOR</div>
+      <div class="graph-bars" id="graph-bars">
+        <div class="bar" style="height:5%;"></div>
+        <div class="bar" style="height:8%;"></div>
+        <div class="bar" style="height:6%;"></div>
+        <div class="bar" style="height:10%;"></div>
+        <div class="bar" style="height:7%;"></div>
+        <div class="bar" style="height:9%;"></div>
+        <div class="bar" style="height:5%;"></div>
+        <div class="bar" style="height:6%;"></div>
+        <div class="bar" style="height:8%;"></div>
+        <div class="bar" style="height:7%;"></div>
+        <div class="bar" style="height:6%;"></div>
+        <div class="bar" style="height:5%;"></div>
+      </div>
+      <div class="graph-labels">
+        <span id="g-t1">--:--</span>
+        <span id="g-t2">--:--</span>
+        <span id="g-t3">NOW</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">ATTACK_TYPE ANALYSIS</div>
+      <div class="atk-row">
+        <div class="atk-label syn-color">
+          SYN_FLOOD
+          <div class="atk-bar-bg"><div class="atk-bar-fill" id="bar-syn" style="width:0%;background:var(--red);"></div></div>
+        </div>
+        <div class="atk-count syn-color" id="cnt-syn">0</div>
+      </div>
+      <div class="atk-row">
+        <div class="atk-label udp-color">
+          UDP_FLOOD
+          <div class="atk-bar-bg"><div class="atk-bar-fill" id="bar-udp" style="width:0%;background:var(--amber);"></div></div>
+        </div>
+        <div class="atk-count udp-color" id="cnt-udp">0</div>
+      </div>
+      <div class="atk-row">
+        <div class="atk-label icmp-color">
+          ICMP_FLOOD
+          <div class="atk-bar-bg"><div class="atk-bar-fill" id="bar-icmp" style="width:0%;background:var(--blue);"></div></div>
+        </div>
+        <div class="atk-count icmp-color" id="cnt-icmp">0</div>
+      </div>
+      <div class="atk-row">
+        <div class="atk-label" style="color:#aa00ff;">
+          HTTP_FLOOD
+          <div class="atk-bar-bg"><div class="atk-bar-fill" id="bar-http" style="width:0%;background:#aa00ff;"></div></div>
+        </div>
+        <div class="atk-count" style="color:#aa00ff;" id="cnt-http">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">NETWORK_TOPOLOGY STATUS</div>
+    <div class="topo">
+      <div class="node"><div class="node-circle ctrl">C1</div>CONTROLLER_1<br>:6633</div>
+      <div class="node"><div class="node-circle ctrl">C2</div>CONTROLLER_2<br>:6634</div>
+      <div class="node"><div class="node-circle sw">S1</div>SWITCH_1<br>CORE</div>
+      <div class="node"><div class="node-circle sw">S2</div>SWITCH_2<br>CORE</div>
+      <div class="node"><div class="node-circle sw">S3</div>SWITCH_3<br>EDGE</div>
+      <div class="node"><div class="node-circle sw">S4</div>SWITCH_4<br>EDGE</div>
+      <div class="node"><div class="node-circle host" id="node-h1">H1</div>HOST_1<br>10.0.0.1</div>
+      <div class="node"><div class="node-circle host" id="node-h2">H2</div>HOST_2<br>10.0.0.2</div>
+      <div class="node"><div class="node-circle host" id="node-h3">H3</div>HOST_3<br>10.0.0.3</div>
+      <div class="node"><div class="node-circle host" id="node-h4">H4</div>HOST_4<br>10.0.0.4</div>
+      <div class="node"><div class="node-circle host" id="node-h5">H5</div><span id="lbl-h5">HOST_5</span><br>10.0.0.5</div>
+      <div class="node"><div class="node-circle host" id="node-h6">H6</div>HOST_6<br>10.0.0.6</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">BLOCKED_IP REGISTRY</div>
+    <table>
+      <thead><tr><th>IP_ADDRESS</th><th>TIMESTAMP</th><th>ATTACK_TYPE</th><th>PKT_RATE</th><th>STATUS</th><th>ACTION</th></tr></thead>
+      <tbody id="blocked-table"><tr><td colspan="6" class="empty">// NO BLOCKED IPs — NETWORK CLEAR</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">ATTACK_LOG FEED</div>
+    <table>
+      <thead><tr><th>TIMESTAMP</th><th>SOURCE_IP</th><th>ATTACK_TYPE</th><th>PKT_RATE</th><th>STATUS</th></tr></thead>
+      <tbody id="attack-log"><tr><td colspan="5" class="empty">// MONITORING ACTIVE — NO ATTACKS DETECTED</td></tr></tbody>
+    </table>
+  </div>
+
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== USERS =====
+const USERS = {
+  'kushal': 'sdnproject',
+  'sneha': 'sdnproject',
+  'mannat': 'sdnproject'
+};
+
+// ===== MATRIX RAIN =====
+const canvas = document.getElementById('matrix');
+const ctx = canvas.getContext('2d');
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ';
+const fontSize = 14;
+let drops = [];
+function initDrops() {
+  const cols = Math.floor(canvas.width / fontSize);
+  drops = Array(cols).fill(1);
+}
+initDrops();
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(0,10,0,0.05)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#00ff41';
+  ctx.font = fontSize + 'px Share Tech Mono';
+  drops.forEach((y, i) => {
+    const char = chars[Math.floor(Math.random() * chars.length)];
+    ctx.fillText(char, i * fontSize, y * fontSize);
+    if (y * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i]++;
+  });
+}
+setInterval(drawMatrix, 50);
+
+// ===== LOGIN =====
+function doLogin() {
+  const user = document.getElementById('username').value.trim().toLowerCase();
+  const pass = document.getElementById('password').value;
+  const err = document.getElementById('login-error');
+  if (USERS[user] && USERS[user] === pass) {
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('logged-user').textContent = user.toUpperCase();
+    err.textContent = '';
+    startDashboard();
+  } else {
+    err.textContent = '[ ACCESS DENIED ] — INVALID CREDENTIALS';
+    document.getElementById('password').value = '';
+  }
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-page').style.display !== 'none') doLogin();
+});
+
+function doLogout() {
+  document.getElementById('login-page').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('username').value = '';
+  document.getElementById('password').value = '';
+  clearInterval(clockInterval);
+  clearInterval(fetchInterval);
+}
+
+// ===== DASHBOARD LOGIC =====
+let clockInterval, fetchInterval;
+let attackTypes = {SYN:0, UDP:0, ICMP:0, HTTP:0};
+let blockedIPs = [];
+let attackLog = [];
+let graphData = Array(12).fill(2);
+
+function startDashboard() {
+  clockInterval = setInterval(updateClock, 1000);
+  updateClock();
+  fetchInterval = setInterval(fetchData, 2000);
+  fetchData();
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.getHours().toString().padStart(2,'0') + ':' +
+    now.getMinutes().toString().padStart(2,'0') + ':' +
+    now.getSeconds().toString().padStart(2,'0');
+}
+
+async function fetchData() {
+  try {
+    const res = await fetch('http://127.0.0.1:5000/api/status');
+    const data = await res.json();
+    updateDashboard(data);
+  } catch(e) {
+    document.getElementById('status-text').textContent = 'CONNECTING TO POX CONTROLLER...';
+  }
+}
+
+function updateDashboard(data) {
+  document.getElementById('total-atk').textContent = data.total_attacks;
+  document.getElementById('blk-count').textContent = data.blocked_ips.length;
+  document.getElementById('net-status').textContent = data.network_status;
+
+  const isAttack = data.network_status !== 'SAFE';
+  document.getElementById('alert-banner').style.display = isAttack ? 'block' : 'none';
+  document.getElementById('status-text').textContent = isAttack
+    ? 'THREAT DETECTED — MITIGATION ACTIVE'
+    : 'NETWORK SECURE — NO ACTIVE THREATS DETECTED';
+
+  if (data.attacks.length > 0) {
+    const last = data.attacks[0];
+    document.getElementById('alert-text').textContent =
+      `ATTACK DETECTED — ${last.src} — ${last.type} — ${last.rate.toLocaleString()} pkts/sec`;
+  }
+
+  attackTypes = data.attack_types;
+  const maxAtk = Math.max(1, ...Object.values(attackTypes));
+  ['SYN','UDP','ICMP','HTTP'].forEach(t => {
+    const key = t.toLowerCase();
+    document.getElementById('cnt-' + key).textContent = attackTypes[t] || 0;
+    const pct = Math.round(((attackTypes[t] || 0) / maxAtk) * 100);
+    document.getElementById('bar-' + key).style.width = pct + '%';
+  });
+
+  updateGraph(data.attacks);
+  updateTopology(data.blocked_ips);
+  updateBlockedTable(data.blocked_ips);
+  updateAttackLog(data.attacks);
+}
+
+function updateGraph(attacks) {
+  const now = Date.now();
+  graphData.shift();
+  graphData.push(attacks.length > 0 ? Math.min(100, attacks.length * 10 + 5) : Math.random() * 8 + 2);
+  const bars = document.getElementById('graph-bars');
+  const maxVal = Math.max(1, ...graphData);
+  bars.innerHTML = graphData.map((v, i) => {
+    const h = Math.round((v / maxVal) * 100);
+    const isAtk = i === graphData.length - 1 && attacks.length > 0;
+    return `<div class="bar ${isAtk ? 'atk' : ''}" style="height:${h}%;"></div>`;
+  }).join('');
+  const d = new Date();
+  const t = h => `${d.getHours().toString().padStart(2,'0')}:${(d.getMinutes()-h+60)%60..toString().padStart(2,'0')}`;
+  document.getElementById('g-t1').textContent = t(2);
+  document.getElementById('g-t2').textContent = t(1);
+}
+
+function updateTopology(blocked) {
+  const blockedSet = new Set(blocked.filter(b => b.status === 'blocked').map(b => b.ip));
+  ['h1','h2','h3','h4','h5','h6'].forEach((h, i) => {
+    const ip = `10.0.0.${i+1}`;
+    const node = document.getElementById('node-' + h);
+    if (blockedSet.has(ip)) {
+      node.className = 'node-circle blocked';
+      if (h === 'h5') document.getElementById('lbl-h5').textContent = 'HOST_5 [BLOCKED]';
+    } else {
+      node.className = 'node-circle host';
+      if (h === 'h5') document.getElementById('lbl-h5').textContent = 'HOST_5';
+    }
+  });
+}
+
+function updateBlockedTable(blocked) {
+  const tbody = document.getElementById('blocked-table');
+  if (blocked.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">// NO BLOCKED IPs — NETWORK CLEAR</td></tr>';
+    return;
+  }
+  tbody.innerHTML = blocked.map((b, i) => `
+    <tr>
+      <td class="ip-text">${b.ip}</td>
+      <td class="time-text">${b.time}</td>
+      <td>${getBadge(b.reason)}</td>
+      <td class="rate-text">${b.reason}</td>
+      <td><span class="badge ${b.status}">${b.status.toUpperCase()}</span></td>
+      <td>${b.status === 'blocked'
+        ? `<button class="unblock-btn" onclick="unblockIP('${b.ip}', this)">[ UNBLOCK ]</button>`
+        : `<button class="unblock-btn" disabled>[ CLEARED ]</button>`}
+      </td>
+    </tr>`).join('');
+}
+
+function updateAttackLog(attacks) {
+  const tbody = document.getElementById('attack-log');
+  if (attacks.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">// MONITORING ACTIVE — NO ATTACKS DETECTED</td></tr>';
+    return;
+  }
+  tbody.innerHTML = attacks.slice(0, 10).map(a => `
+    <tr>
+      <td class="time-text">${a.time}</td>
+      <td class="ip-text">${a.src}</td>
+      <td>${getBadge(a.type)}</td>
+      <td class="rate-text">${a.rate.toLocaleString()} p/s</td>
+      <td><span class="badge blocked">BLOCKED</span></td>
+    </tr>`).join('');
+}
+
+function getBadge(type) {
+  if (type.includes('SYN')) return '<span class="badge syn">SYN_FLOOD</span>';
+  if (type.includes('UDP')) return '<span class="badge udp">UDP_FLOOD</span>';
+  if (type.includes('ICMP')) return '<span class="badge icmp">ICMP_FLOOD</span>';
+  if (type.includes('HTTP')) return '<span class="badge http">HTTP_FLOOD</span>';
+  return `<span class="badge syn">${type}</span>`;
+}
+
+async function unblockIP(ip, btn) {
+  btn.disabled = true;
+  btn.textContent = '[ PROCESSING... ]';
+  try {
+    await fetch('http://127.0.0.1:5000/api/unblock', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ip})
+    });
+    showToast(`// IP ${ip} UNBLOCKED — MONITORING RESUMED`);
+    fetchData();
+  } catch(e) {
+    showToast('// ERROR: Could not connect to server');
+    btn.disabled = false;
+    btn.textContent = '[ UNBLOCK ]';
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+</script>
+</body>
+</html>
