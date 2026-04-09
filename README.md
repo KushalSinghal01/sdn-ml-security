@@ -86,7 +86,7 @@ sudo python3 sdn_redundant.py
 ```
 
 ### Step 4 — Open Dashboard
-Open browser and go to:file:///path/to/dashboard.html
+open dashboard.html directly in Firefox browser.
 ### Step 5 — Test Attacks
 ```bash
 # SYN Flood
