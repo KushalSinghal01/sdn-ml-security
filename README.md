@@ -11,14 +11,15 @@ This project implements a real-time DDoS attack detection and mitigation system 
 - **Flask Dashboard** — Real-time monitoring and control
 
 ## Architecture
-'''
+```
 Mininet (Network Simulation)
-↓
+        ↓
 POX Controller (ml_mitigation.py)
-↓
+        ↓
 Flask Server (dashboard_server.py)
-↓
-Browser Dashboard (dashboard.html)'''
+        ↓
+Browser Dashboard (dashboard.html)
+```
 ## Features
 
 - Real-time attack detection (SYN, UDP, ICMP, HTTP Flood)
